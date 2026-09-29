@@ -1,0 +1,42 @@
+# CP1 — commit 13b6066 + CP1 changes (chưa commit) — 2026-09-29T07:52:55Z
+
+# Structured log (data/logs.jsonl) cho một request, lọc theo correlation_id=req-ca2287f7
+$ grep '"req-ca2287f7"' data/logs.jsonl | python -m json.tool
+{
+    "correlation_id": "req-ca2287f7",
+    "env": "dev",
+    "event": "request_received",
+    "feature": "qa",
+    "level": "info",
+    "model": "claude-sonnet-4-5",
+    "payload": {
+        "message_preview": "Explain why metrics traces and logs work together"
+    },
+    "service": "api",
+    "session_id": "s02",
+    "ts": "2026-09-29T07:52:41.257833Z",
+    "user_id_hash": "95b6504a8bd6"
+}
+{
+    "correlation_id": "req-ca2287f7",
+    "cost_usd": 0.002106,
+    "env": "dev",
+    "event": "response_sent",
+    "feature": "qa",
+    "latency_ms": 161,
+    "level": "info",
+    "model": "claude-sonnet-4-5",
+    "payload": {
+        "answer_preview": "Starter answer. You should improve this output logic and add better quality chec..."
+    },
+    "quality_score": 0.8,
+    "service": "api",
+    "session_id": "s02",
+    "tokens_in": 32,
+    "tokens_out": 134,
+    "tool_name": "retrieval",
+    "tool_success": true,
+    "ts": "2026-09-29T07:52:41.421998Z",
+    "ttft_ms": 55,
+    "user_id_hash": "95b6504a8bd6"
+}

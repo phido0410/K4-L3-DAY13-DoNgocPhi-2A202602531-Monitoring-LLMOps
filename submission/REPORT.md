@@ -37,13 +37,13 @@
 
 | Nội dung | Baseline | Kết quả cuối | Nhận xét |
 |---|---|---|---|
-| `validate_logs.py` | | | |
-| `validate_dashboard.py` | | | |
-| `pytest` | | | |
-| Số traces hợp lệ | | | |
-| Số PII leak | | | |
-| Latency P95 / TTFT P95 | | | |
-| Retrieval success rate | | | |
+| `validate_logs.py` | 30/100 (thiếu `correlation_id`, thiếu enrichment) | | Baseline: [`evidence/00-baseline.txt`](evidence/00-baseline.txt) |
+| `validate_dashboard.py` | 6/6 panel | | |
+| `pytest` | 22 passed | | |
+| Số traces hợp lệ | 0 (chưa cấu hình Langfuse key) | | |
+| Số PII leak | 0 | | |
+| Latency P95 / TTFT P95 | 160 ms / 55 ms (10 requests) | | |
+| Retrieval success rate | 100% (10/10) | | |
 
 ## 4. Logging và PII
 

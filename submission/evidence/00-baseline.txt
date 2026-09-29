@@ -1,0 +1,38 @@
+# CP0 baseline — commit 13b6066 — 2026-09-29T07:39:15Z
+
+$ python -m pytest -q
+22 passed in 1.02s
+
+$ python scripts/load_test.py
+[200] MISSING | qa | 225.6ms
+[200] MISSING | qa | 167.5ms
+[200] MISSING | summary | 167.3ms
+[200] MISSING | qa | 166.1ms
+[200] MISSING | qa | 167.5ms
+[200] MISSING | summary | 165.5ms
+[200] MISSING | qa | 162.3ms
+[200] MISSING | qa | 163.4ms
+[200] MISSING | qa | 156.2ms
+[200] MISSING | qa | 161.7ms
+
+$ python scripts/validate_logs.py
+--- Lab Verification Results ---
+Total log records analyzed: 21
+Records with missing required fields: 20
+Records with missing enrichment (context): 20
+Unique correlation IDs found: 0
+Potential PII leaks detected: 0
+
+--- Grading Scorecard (Estimates) ---
+- [FAILED] Missing required fields (ts, level, etc.)
+- [FAILED] Correlation ID propagation (less than 2 unique IDs)
+- [FAILED] Log enrichment (missing user_id_hash, etc.)
++ [PASSED] PII scrubbing
+
+Estimated Score: 30/100
+
+$ python scripts/validate_dashboard.py
+HỢP LỆ: 6/6 panel có trong dashboard contract.
+
+$ curl http://127.0.0.1:8000/metrics  (sau load test baseline)
+{"traffic":10,"latency_p50":159.0,"latency_p95":160.0,"latency_p99":160.0,"ttft_p95":55.0,"avg_cost_usd":0.0021,"total_cost_usd":0.0211,"tokens_in_total":338,"tokens_out_total":1339,"error_breakdown":{},"quality_avg":0.88}

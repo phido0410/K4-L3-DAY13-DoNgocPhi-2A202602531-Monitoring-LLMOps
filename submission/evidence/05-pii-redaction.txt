@@ -1,0 +1,44 @@
+# CP1 — commit 13b6066 + CP1 changes (chưa commit) — 2026-09-29T07:53:18Z
+
+# Input chứa PII giả (dữ liệu test của lab, không phải PII thật).
+# PII trong lệnh curl được che ở file này để evidence không chứa PII nguyên văn; request thật gửi đầy đủ giá trị giả.
+$ curl -X POST http://127.0.0.1:8000/chat -H "x-request-id: req-0cc0d0e1" -d '{"user_id":"u-pii-demo","session_id":"s-pii-demo","feature":"qa","message":"Email test.user@<masked>, phone 090 *** ****, CCCD 0792********, card 4111-****-****-**** - what is the policy?"}'
+$ curl -X POST http://127.0.0.1:8000/chat -H "x-request-id: req-0cc0d0e2" -d '{"user_id":"u-pii-demo","session_id":"s-pii-demo","feature":"qa","message":"Card 4111-****-****-**** was charged twice, refund?"}'
+
+# Log request_received tương ứng trong data/logs.jsonl:
+{
+    "correlation_id": "req-0cc0d0e1",
+    "env": "dev",
+    "event": "request_received",
+    "feature": "qa",
+    "level": "info",
+    "model": "claude-sonnet-4-5",
+    "payload": {
+        "message_preview": "Email [REDACTED_EMAIL], phone [REDACTED_PHONE_VN], CCCD [REDACTED_CCCD], card [R..."
+    },
+    "service": "api",
+    "session_id": "s-pii-demo",
+    "ts": "2026-09-29T07:52:42.786026Z",
+    "user_id_hash": "b464b576d729"
+}
+{
+    "correlation_id": "req-0cc0d0e2",
+    "env": "dev",
+    "event": "request_received",
+    "feature": "qa",
+    "level": "info",
+    "model": "claude-sonnet-4-5",
+    "payload": {
+        "message_preview": "Card [REDACTED_CREDIT_CARD] was charged twice, refund?"
+    },
+    "service": "api",
+    "session_id": "s-pii-demo",
+    "ts": "2026-09-29T07:53:18.530315Z",
+    "user_id_hash": "b464b576d729"
+}
+
+# Quét toàn bộ data/logs.jsonl bằng PII detectors độc lập của scripts/validate_logs.py:
+$ python scripts/validate_logs.py
+Total log records analyzed: 25
+Potential PII leaks detected: 0
++ [PASSED] PII scrubbing
