@@ -1,11 +1,12 @@
-# CP1 — commit 13b6066 + CP1 changes (chưa commit) — 2026-09-29T07:53:18Z
+# CP4 final — source tại commit 26b8173 (các commit sau chỉ đổi REPORT/evidence, không đổi code) — 2026-09-29T10:01:30Z
+# data/logs.jsonl = log của phiên challenge CP3 (baseline + incident + verify)
 
 $ python scripts/validate_logs.py
 --- Lab Verification Results ---
-Total log records analyzed: 25
+Total log records analyzed: 35
 Records with missing required fields: 0
 Records with missing enrichment (context): 0
-Unique correlation IDs found: 12
+Unique correlation IDs found: 18
 Potential PII leaks detected: 0
 
 --- Grading Scorecard (Estimates) ---

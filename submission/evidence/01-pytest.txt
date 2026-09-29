@@ -1,4 +1,5 @@
 # CP4 final — source tại commit 26b8173 (các commit sau chỉ đổi REPORT/evidence, không đổi code) — 2026-09-29T10:01:30Z
 
-$ python scripts/validate_dashboard.py
-HỢP LỆ: 6/6 panel có trong dashboard contract.
+$ python -m pytest -q
+...............................                                          [100%]
+31 passed in 2.21s

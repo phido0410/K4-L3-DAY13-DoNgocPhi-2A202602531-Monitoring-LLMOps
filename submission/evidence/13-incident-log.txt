@@ -1,0 +1,25 @@
+# CP3 incident log — challenge day13-k4-l3a-monitoring-llmops-v1 — nguồn: data/logs.jsonl
+# Timeline (UTC; giờ địa phương = UTC+7): baseline 09:42:45 · incident_enabled 09:43:02 · incident_disabled 09:44:19
+
+# 1) Sự kiện thay đổi ngay trước triệu chứng
+$ grep -E '"incident_(enabled|disabled)"' data/logs.jsonl
+{"service": "control", "payload": {"name": "rag_slow"}, "event": "incident_enabled", "correlation_id": "req-27043201", "level": "warning", "ts": "2026-09-29T09:43:02.221179Z"}
+{"service": "control", "payload": {"name": "rag_slow"}, "event": "incident_disabled", "correlation_id": "req-fba84b9e", "level": "warning", "ts": "2026-09-29T09:44:19.547503Z"}
+
+# 2) Các request vượt latency_threshold_ms=2000 của challenge
+$ python -c "import json; [print(r['ts'], r['correlation_id'], r['feature'], r['latency_ms'], r['ttft_ms'], r['tool_name'], r['tool_success']) for r in map(json.loads, open('data/logs.jsonl')) if r.get('event')=='response_sent' and r['latency_ms']>2000]"
+2026-09-29T09:43:05.002814Z req-25e63ea0 monitoring 2667 52 retrieval True
+2026-09-29T09:43:07.675149Z req-281eaabd monitoring 2668 55 retrieval True
+2026-09-29T09:43:10.337228Z req-1c5e7b7d monitoring 2659 50 retrieval True
+2026-09-29T09:43:12.999402Z req-aedda0b1 monitoring 2660 51 retrieval True
+2026-09-29T09:43:15.673935Z req-a59eaff0 monitoring 2668 55 retrieval True
+
+# 3) Log đầy đủ của request được chọn để điều tra: correlation_id=req-25e63ea0
+$ grep '"req-25e63ea0"' data/logs.jsonl
+{"service": "api", "payload": {"message_preview": "Explain why metrics traces and logs work together."}, "event": "request_received", "session_id": "k4-l3a-challenge-s01", "model": "claude-sonnet-4-5", "correlation_id": "req-25e63ea0", "feature": "monitoring", "user_id_hash": "dde2e75b20cf", "env": "dev", "level": "info", "ts": "2026-09-29T09:43:02.332250Z"}
+{"service": "api", "latency_ms": 2667, "ttft_ms": 52, "tokens_in": 35, "tokens_out": 164, "cost_usd": 0.002565, "quality_score": 0.8, "tool_name": "retrieval", "tool_success": true, "payload": {"answer_preview": "Starter answer. You should improve this output logic and add better quality chec..."}, "event": "response_sent", "session_id": "k4-l3a-challenge-s01", "model": "claude-sonnet-4-5", "correlation_id": "req-25e63ea0", "feature": "monitoring", "user_id_hash": "dde2e75b20cf", "env": "dev", "level": "info", "ts": "2026-09-29T09:43:05.002814Z"}
+
+# 4) So sánh cùng query challenge trước / trong / sau sự cố (response_sent.latency_ms, feature=monitoring)
+trước  (baseline): n=5  P50=160 ms  P95=161 ms  TTFT P95=55 ms  errors=0
+trong  (rag_slow): n=5  P50=2667 ms  P95=2668 ms  TTFT P95=55 ms  errors=0
+sau fix           : n=5  P50=159 ms  P95=161 ms  TTFT P95=55 ms  errors=0
