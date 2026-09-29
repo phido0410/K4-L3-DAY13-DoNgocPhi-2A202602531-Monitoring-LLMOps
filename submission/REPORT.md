@@ -8,7 +8,7 @@
 - **MSSV:** 2A202602531
 - **Lớp:** K4-L3A
 - **Repository URL:** https://github.com/phido0410/K4-L3-DAY13-DoNgocPhi-2A202602531-Monitoring-LLMOps
-- **Commit SHA cuối:** `983d44b919b517e3079063ecf3b3747912bf7963` — commit chứa toàn bộ source, config và evidence. Commit ngay sau đó chỉ ghi SHA vào dòng này, không đổi nội dung nào khác.
+- **Commit SHA cuối:** `d8a03bc90a23bbb27adf882433f907cb16228ead` — commit chứa toàn bộ source, config và evidence. Commit ngay sau đó chỉ ghi SHA vào dòng này, không đổi nội dung nào khác.
 - **Challenge ID:** `day13-k4-l3a-monitoring-llmops-v1`
 - **Tên project Langfuse cá nhân:** `day13-k4-l3a-2A202602531`
 
