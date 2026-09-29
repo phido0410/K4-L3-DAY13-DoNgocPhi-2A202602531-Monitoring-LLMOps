@@ -1,25 +1,31 @@
 alerts:
-  - name: TODO_alert_1
-    severity: TODO
-    condition: TODO
-    duration: TODO
+  - name: chat_latency_p95_high
+    severity: P2
+    condition: 'p95(latency_ms where event == "response_sent") over 5m > 1000'
+    duration: 5m
     type: symptom-based
     channel: slack
-    owner: TODO
+    slack_channel: '#k4-l3a-day13-oncall'
+    owner: Đỗ Ngọc Phi (AI platform on-call)
+    slo: fast_successful_requests
     runbook: docs/alerts.md#alert-1
-  - name: TODO_alert_2
-    severity: TODO
-    condition: TODO
-    duration: TODO
+  - name: chat_error_rate_high
+    severity: P1
+    condition: 'count(event == "request_failed") / count(event == "request_received") * 100 over 5m > 2'
+    duration: 2m
     type: symptom-based
     channel: slack
-    owner: TODO
+    slack_channel: '#k4-l3a-day13-oncall'
+    owner: Đỗ Ngọc Phi (AI platform on-call)
+    slo: fast_successful_requests
     runbook: docs/alerts.md#alert-2
-  - name: TODO_alert_3
-    severity: TODO
-    condition: TODO
-    duration: TODO
+  - name: chat_cost_per_request_spike
+    severity: P3
+    condition: 'avg(cost_usd where event == "response_sent") over 15m > 0.0045'
+    duration: 15m
     type: symptom-based
     channel: slack
-    owner: TODO
+    slack_channel: '#k4-l3a-day13-oncall'
+    owner: Đỗ Ngọc Phi (AI platform on-call)
+    slo: guardrails.daily_cost_usd_max
     runbook: docs/alerts.md#alert-3

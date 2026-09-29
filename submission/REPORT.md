@@ -19,16 +19,16 @@
 | Evidence | Đường dẫn |
 |---|---|
 | Pytest cuối | `evidence/01-pytest.png` |
-| Log validator | `evidence/02-log-validator.png` |
-| Dashboard validator | `evidence/03-dashboard-validator.png` |
-| Structured log | `evidence/04-structured-log.png` |
-| PII redaction | `evidence/05-pii-redaction.png` |
-| Trace list | `evidence/06-trace-list.png` |
-| Trace waterfall | `evidence/07-trace-waterfall.png` |
-| Trace metadata | `evidence/08-trace-metadata.png` |
-| Prompt versions | `evidence/09-prompt-versions.png` |
-| Prompt rollback | `evidence/10-prompt-rollback.png` |
-| Dashboard runtime | `evidence/11-dashboard-overview.png` |
+| Log validator | [`evidence/02-log-validator.txt`](evidence/02-log-validator.txt) |
+| Dashboard validator | [`evidence/03-dashboard-validator.txt`](evidence/03-dashboard-validator.txt) |
+| Structured log | [`evidence/04-structured-log.txt`](evidence/04-structured-log.txt) |
+| PII redaction | [`evidence/05-pii-redaction.txt`](evidence/05-pii-redaction.txt) |
+| Trace list | [`evidence/06-trace-list.png`](evidence/06-trace-list.png) |
+| Trace waterfall | [`evidence/07-trace-waterfall.png`](evidence/07-trace-waterfall.png) |
+| Trace metadata | [`08a-trace-metadata-root.png`](evidence/08a-trace-metadata-root.png) · [`08b-trace-metadata-generation.png`](evidence/08b-trace-metadata-generation.png) |
+| Prompt versions | [`evidence/09-prompt-versions.png`](evidence/09-prompt-versions.png) |
+| Prompt rollback | Trước: [`09-prompt-versions.png`](evidence/09-prompt-versions.png) · Sau promote: [`10b-promoted.png`](evidence/10b-promoted.png) · Sau rollback: [`10c-rolled-back.png`](evidence/10c-rolled-back.png) |
+| Dashboard runtime | [`evidence/11-dashboard-overview.png`](evidence/11-dashboard-overview.png) |
 | Incident metric | `evidence/12-incident-metric.png` |
 | Incident log | `evidence/13-incident-log.png` |
 | Incident trace | `evidence/14-incident-trace.png` |
@@ -47,21 +47,57 @@
 
 ## 4. Logging và PII
 
-- **Cách tạo/nhận và truyền correlation ID:**
-- **Các metadata được ghi vào structured log:**
-- **Cách bảo đảm PII được scrub trước khi ghi:**
+- **Cách tạo/nhận và truyền correlation ID:** `CorrelationIdMiddleware` ([`app/middleware.py`](../app/middleware.py)) chạy đầu tiên với mọi request:
+  1. Gọi `clear_contextvars()` để xóa context của request trước. Không có bước này, worker xử lý request mới vẫn giữ `correlation_id`/`session_id` cũ và log sẽ bị gán nhầm request.
+  2. Đọc header `x-request-id`: nếu đúng format `req-<8 hex>` thì giữ nguyên để nối với hệ thống gọi tới; nếu thiếu hoặc sai format thì sinh mới `req-` + 8 ký tự đầu của `uuid4().hex`. Tôi chọn chỉ nhận đúng format để client không chèn được chuỗi tùy ý vào log; đánh đổi là ID của hệ thống ngoài có format khác sẽ bị thay bằng ID mới.
+  3. `bind_contextvars(correlation_id=...)` nên mọi dòng log trong request tự có ID, đồng thời lưu vào `request.state` để `/chat` trả trong body và truyền vào `LabAgent.run` (ghi vào trace metadata ở CP2).
+  4. Trả lại ID qua header `x-request-id` và thời gian xử lý qua `x-response-time-ms`.
+- **Các metadata được ghi vào structured log:** ngoài `ts`, `level`, `service`, `event`, `correlation_id`, endpoint `/chat` ([`app/main.py`](../app/main.py)) bind trước log `request_received`: `user_id_hash` (SHA-256 cắt 12 ký tự, không ghi `user_id` gốc), `session_id`, `feature`, `model`, `env`. Vì bind vào context nên cả `request_received`, `response_sent` và `request_failed` đều có cùng bộ metadata mà không phải truyền tay từng dòng. `response_sent` thêm `latency_ms`, `ttft_ms`, `tokens_in`, `tokens_out`, `cost_usd`, `quality_score`, `tool_name`, `tool_success` — đây là các field dashboard dùng.
+- **Cách bảo đảm PII được scrub trước khi ghi:** có hai lớp:
+  1. Nội dung người dùng không được log nguyên văn mà qua `summarize_text()` — scrub rồi cắt còn 80 ký tự (`message_preview`, `answer_preview`).
+  2. Processor `scrub_event` được đăng ký trong chuỗi structlog ([`app/logging_config.py`](../app/logging_config.py)) **sau** `merge_contextvars`/`TimeStamper` và **trước** `JsonlFileProcessor`/`JSONRenderer`, nên mọi chuỗi trong `payload` và `event` được che trước khi serialize và ghi file. Lớp này bắt cả các giá trị không đi qua `summarize_text`, ví dụ `payload.detail` chứa message của exception.
+
+  Rule trong [`app/pii.py`](../app/pii.py): email, điện thoại Việt Nam (`0`/`+84` và 9 chữ số, cho phép khoảng trắng/`.`/`-`), CCCD 12 chữ số, thẻ thanh toán 16 chữ số (liền hoặc cách bằng khoảng trắng/`-`). Giá trị bị thay bằng `[REDACTED_<LOẠI>]`.
 - **Cách kiểm chứng kết quả:**
+  - Baseline: `validate_logs.py` đạt 30/100 — 20/21 dòng log có `correlation_id=MISSING` và thiếu enrichment ([`evidence/00-baseline.txt`](evidence/00-baseline.txt)).
+  - Vì validator đọc toàn bộ `data/logs.jsonl`, tôi chuyển log baseline ra khỏi repo, restart API, chạy lại `load_test.py` và gửi thêm 2 request chứa PII giả (email, SĐT, CCCD, thẻ). Kết quả: 100/100, 0 PII leak, 12 correlation ID khác nhau trên 25 dòng log ([`evidence/02-log-validator.txt`](evidence/02-log-validator.txt)).
+  - Log của cùng một request có chung `correlation_id` và đủ metadata ([`evidence/04-structured-log.txt`](evidence/04-structured-log.txt)); log đầu ra hiện `[REDACTED_EMAIL]`, `[REDACTED_PHONE_VN]`, `[REDACTED_CCCD]`, `[REDACTED_CREDIT_CARD]` ([`evidence/05-pii-redaction.txt`](evidence/05-pii-redaction.txt)).
+  - Tests: [`tests/test_pii.py`](../tests/test_pii.py) kiểm tra từng loại PII; [`tests/test_correlation_logging.py`](../tests/test_correlation_logging.py) kiểm tra sinh/nhận ID, header, enrichment, không rò context giữa hai request liên tiếp và PII bị che trong file log (gọi logger trực tiếp với `payload.detail`, không qua `summarize_text`, nên chứng minh được `scrub_event` hoạt động — khi tạm bỏ `scrub_event` khỏi processor chain, đúng test này fail). Toàn bộ 29 tests pass.
 
 ## 5. Tracing và prompt versioning
 
-- **Cách xác nhận traces do chính tôi tạo trong project cá nhân:**
+- **Cách xác nhận traces do chính tôi tạo trong project cá nhân:** traces nằm trong project `day13-k4-l3a-2A202602531` (breadcrumb trong ảnh), được tạo bằng key của chính project này qua `load_test.py` và các request thủ công. `correlation_id` trong metadata của trace khớp với dòng log tương ứng trong `data/logs.jsonl` trên máy tôi.
 - **Cấu trúc root/retrieval/generation observations:**
-- **Cách nối trace với log:**
-- **Prompt name:**
-- **Version/label baseline:**
-- **Version/label candidate:**
-- **Trace ID của mỗi version:**
-- **Cách promote và rollback `production`:**
+  - `lab-agent-run` (AGENT, root, `@observe` trên `LabAgent.run`) chứa metadata: `correlation_id`, `feature`, `model`, `prompt_name/label/version/source`, `doc_count`, `query_preview` (đã scrub).
+  - `retrieval` (RETRIEVER, `@observe` trên `retrieve()` trong [`app/mock_rag.py`](../app/mock_rag.py)): không capture input vì là message người dùng có thể chứa PII, có capture output vì là tài liệu corpus.
+  - `llm-generation` (GENERATION, `@observe` trên `FakeLLM.generate()` trong [`app/mock_llm.py`](../app/mock_llm.py)): `update_current_generation` ghi `model`, `usage_details` (input/output), `cost_details` (input/output/total, cùng bảng giá với `cost_usd` trong log), `completion_start_time` (để Langfuse tính TTFT). Prompt version được link tự động nhờ `propagate_attributes(prompt=...)`. Không capture prompt/output thô.
+  - Ví dụ trace `37789723cac4772a4ba3b4937361e888` (đợt practice `rag_slow`): root 2.76s = `retrieval` 2.50s + `llm-generation` 202ms ([`07-trace-waterfall.png`](evidence/07-trace-waterfall.png)).
+- **Cách nối trace với log:** middleware sinh `correlation_id`, bind vào structlog context và truyền vào `LabAgent.run`, rồi `propagate_attributes(metadata={"correlation_id": ...})` gắn nó vào mọi observation của trace. Kiểm chứng với `req-d49ee7e9`:
+
+  | Trường | Log `response_sent` | Trace `37789723…` |
+  |---|---|---|
+  | latency | `latency_ms: 2762` | 2.76s |
+  | cost | `cost_usd: 0.002076` | $0.002076 |
+  | tokens | 32 in + 132 out | 164 tokens |
+  | TTFT | `ttft_ms: 54` | metadata `ttft_ms: 54` |
+  | session / user | `s02` / `95b6504a8bd6` | `s02` / `95b6504a8bd6` |
+
+  Ảnh metadata: [`08a`](evidence/08a-trace-metadata-root.png) (root), [`08b`](evidence/08b-trace-metadata-generation.png) (generation). Dòng `scope.attributes.public_key` mà SDK tự thêm đã được che.
+- **Prompt name:** `day13-chat` (text prompt, biến `{{feature}}`, `{{docs}}`, `{{message}}`)
+- **Version/label baseline:** v1 — labels `production`, `baseline`
+- **Version/label candidate:** v2 — label `candidate` (thêm dòng `Answer in at most 3 sentences and only use the Docs above.`)
+- **Trace ID của mỗi version:** cùng input `What is your refund policy?`
+  - `baseline` → v1: trace `3c3ad4e77ffc86957806baab5ef200e6`, correlation `req-ba5e0001`, tokens in/out 28/163, cost $0.002529
+  - `candidate` → v2: trace `7dd07bebf61a8c3dc835e23b2102bacc`, correlation `req-cad10001`, tokens in/out 42/86, cost $0.001416 (input +14 tokens do dòng thêm vào prompt)
+- **Cách promote và rollback `production`:** trên Langfuse UI, mở **Prompt labels** của version cần đưa lên và tick `production`. Langfuse tự gỡ label khỏi version cũ, vì mỗi label chỉ gắn với một version. Code không đổi gì: app luôn fetch theo `LANGFUSE_PROMPT_LABEL=production`. Cùng input `What is your refund policy?`:
+
+  | Trạng thái | `production` trỏ tới | Correlation ID | Trace ID | tokens_in |
+  |---|---|---|---|---:|
+  | Trước | v1 | `req-ba5e0001` (label `baseline`, cùng v1) | `3c3ad4e77ffc86957806baab5ef200e6` | 28 |
+  | Sau promote | v2 | `req-9f0d0002` | `3674bf3e82b595fef7ee9150f4f1800d` | 42 |
+  | Sau rollback | v1 | `req-9f0d0003` | `97a1e24546b15e28d3abd84053cc2775` | 28 |
+
+  Ở cả ba trace, `prompt_label`/`prompt_version` trong metadata của root và prompt link trên observation `llm-generation` đều khớp với version mà `production` đang trỏ tới. Lưu ý vận hành: SDK cache prompt 60 giây (`cache_ttl_seconds=60`), nên sau khi đổi label, process đang chạy có thể vẫn dùng version cũ tới 60 giây. Để kiểm chứng ngay, tôi restart API trước mỗi request.
 
 ## 6. Dashboard, SLO và alerts
 

@@ -3,11 +3,24 @@ primary_slo:
   name: fast_successful_requests
   window: 28d
   sli:
-    good_event: 'event == "response_sent" and latency_ms <= 3000'
+    good_event: 'event == "response_sent" and latency_ms <= 1000'
     total_event: 'event == "request_received"'
   target_percent: 99.5
   error_budget_percent: 0.5
-  note: Học viên phải giải thích hoặc điều chỉnh ngưỡng bằng baseline của mình.
+  note: >-
+    Hạ ngưỡng latency từ 3000 ms xuống 1000 ms dựa trên baseline đo được: P50 ~159 ms,
+    P95 ~160 ms khi warm (chỉ request cold-start đầu tiên sau khi restart, lúc prompt
+    Langfuse chưa có trong cache, mới lên 1.3–3.3 s). Với ngưỡng 3000 ms, practice
+    incident rag_slow (latency_ms ~2666 ms, gấp ~16 lần bình thường) vẫn bị tính là
+    "good" nên SLO không phát hiện được. 1000 ms cao hơn ~6 lần P95 warm nên không
+    báo động giả, nhưng bắt được rag_slow. Request lỗi (request_failed) không có
+    response_sent nên tự động bị tính là bad event.
+  error_budget:
+    formula: 'bad_events_allowed = total_events * (100 - target_percent) / 100'
+    example: >-
+      Ở tải 1 request/phút, 28 ngày có 40 320 request, nên budget là 201 bad request.
+      Quy ra thời gian là 0.5% * 28 ngày = 3.36 giờ nếu toàn bộ traffic bị hỏng.
+      Nếu một đợt rag_slow kéo dài 30 phút ở tải đó thì mất 30 bad request, tức ~15% budget.
 guardrails:
   error_rate_pct_max: 2
   daily_cost_usd_max: 2.5
